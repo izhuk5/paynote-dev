@@ -1,0 +1,15 @@
+{
+  "name": "paynote-jsdelivr",
+  "version": "1.0.0",
+  "description": "Custom JS for Webflow — served via jsDelivr CDN",
+  "scripts": {
+    "build": "terser src/app.js --compress passes=3,ecma=2015 --mangle -o dist/app.min.js",
+    "build:watch": "nodemon --watch src/app.js --ext js --exec \"npm run build\"",
+    "build:all": "node scripts/build-all.js",
+    "deploy": "npm run build && echo '\\n✅ Build done. Now run:\\n   git add . && git commit -m \"build\" && git push\\n   git tag vX.X.X && git push origin vX.X.X'"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "terser": "^5.31.0"
+  }
+}
