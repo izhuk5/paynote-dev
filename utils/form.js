@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
 const form = document.getElementById("form");
 if (form) {
   const phone = form.querySelector('[name="phone-number"]');
-  const website = form.querySelector('[name="company-website"]');
+  const website = form.querySelector('[name="company-website"], [name="website-adress"]');
   const email = form.querySelector('[name="email"]');
   const submitBtn = form.querySelector('[type="submit"]');
 
@@ -74,7 +74,7 @@ if (form) {
     phone.value = phone.value.replace(/[^\d\s\+\-().]/g, "");
   });
 
-  bindField(website, validators.website);
+  if (website) bindField(website, validators.website);
   bindField(email, validators.email);
 
   checkAllFilled();
@@ -88,10 +88,10 @@ if (form) {
     }
 
     const phoneOk = validators.phone(phone.value);
-    const websiteOk = validators.website(website.value);
+    const websiteOk = website ? validators.website(website.value) : true;
     const emailOk = validators.email(email.value);
     setFieldError(phone, !phoneOk);
-    setFieldError(website, !websiteOk);
+    if (website) setFieldError(website, !websiteOk);
     setFieldError(email, !emailOk);
     if (!phoneOk || !websiteOk || !emailOk) e.preventDefault();
   });
