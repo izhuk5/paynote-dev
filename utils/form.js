@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
 const form = document.getElementById("form");
 if (form) {
   const phone = form.querySelector('[name="phone-number"]');
-  const website = form.querySelector('[name="website-adress"]');
+  const website = form.querySelector('[name="company-website"]');
   const email = form.querySelector('[name="email"]');
   const submitBtn = form.querySelector('[type="submit"]');
 
