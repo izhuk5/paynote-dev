@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   videos.forEach((video, index) => {
     if (!video.id) video.id = `video-${index + 1}`;
+    if (!video.muted) video.muted = true;
     video.removeAttribute("autoplay");
     observer.observe(video);
     if (!video.paused) video.pause();
