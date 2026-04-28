@@ -217,6 +217,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const nav = document.querySelector(".navbar2_component");
   if (nav) {
     const TOP_THRESHOLD = 80;
+    let isInHideZone = false;
+
     const showAnim = gsap
       .from(nav, {
         yPercent: -110,
@@ -225,6 +227,19 @@ document.addEventListener("DOMContentLoaded", () => {
         ease: "power3.out",
       })
       .progress(1);
+
+    document.querySelectorAll("[data-nav-hide-on-scroll]").forEach((section) => {
+      ScrollTrigger.create({
+        trigger: section,
+        start: "top top",
+        end: "bottom top",
+        onEnter: () => { isInHideZone = true; },
+        onLeave: () => { isInHideZone = false; showAnim.play(); },
+        onEnterBack: () => { isInHideZone = true; },
+        onLeaveBack: () => { isInHideZone = false; showAnim.play(); },
+      });
+    });
+
     ScrollTrigger.create({
       start: "top top",
       end: "max",
@@ -233,7 +248,11 @@ document.addEventListener("DOMContentLoaded", () => {
           showAnim.play();
           return;
         }
-        self.direction === -1 ? showAnim.play() : showAnim.reverse();
+        if (isInHideZone) {
+          self.direction === -1 ? showAnim.play() : showAnim.reverse();
+        } else {
+          showAnim.play();
+        }
       },
     });
   }
