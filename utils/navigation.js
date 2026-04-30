@@ -191,6 +191,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 ease: "power2.in",
               });
           } else {
+            navbarDropdowns.forEach((otherDropdown) => {
+              if (otherDropdown === dropdown) return;
+              const otherBody = otherDropdown.querySelector(
+                ".navbar2_dropdown-body",
+              );
+              const otherIcon = otherDropdown.querySelector(
+                ".navbar2_dropdown-icon",
+              );
+              if (otherBody && otherBody.classList.contains("is-active")) {
+                otherBody.classList.remove("is-active");
+                gsap.set(otherBody, { display: "none" });
+                if (otherIcon) gsap.set(otherIcon, { rotation: 0 });
+              }
+            });
             dropdownBody.classList.add("is-active");
             gsap.to(dropdownBody, {
               display: "flex",
@@ -217,6 +231,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const nav = document.querySelector(".navbar2_component");
   if (nav) {
     const TOP_THRESHOLD = 80;
+    let isInHideZone = false;
+
     const showAnim = gsap
       .from(nav, {
         yPercent: -110,
@@ -225,10 +241,35 @@ document.addEventListener("DOMContentLoaded", () => {
         ease: "power3.out",
       })
       .progress(1);
+
+    document.querySelectorAll("[data-nav-hide-on-scroll]").forEach((el) => {
+      ScrollTrigger.create({
+        trigger: el,
+        start: "top top",
+        end: "bottom top",
+        onEnter: () => {
+          isInHideZone = true;
+          showAnim.reverse();
+        },
+        onLeave: () => {
+          isInHideZone = false;
+        },
+        onEnterBack: () => {
+          isInHideZone = true;
+          showAnim.reverse();
+        },
+        onLeaveBack: () => {
+          isInHideZone = false;
+          showAnim.play();
+        },
+      });
+    });
+
     ScrollTrigger.create({
       start: "top top",
       end: "max",
       onUpdate: (self) => {
+        if (isInHideZone) return;
         if (self.scroll() <= TOP_THRESHOLD) {
           showAnim.play();
           return;
@@ -305,6 +346,8 @@ document.addEventListener("DOMContentLoaded", () => {
             ease: "power2.out",
           }),
         );
+        if (burgerIconFirst) gsap.to(burgerIconFirst, { color: "#FEFEFD", duration: 0.35, ease: "power2.out" });
+        if (burgerIconSecond) gsap.to(burgerIconSecond, { color: "#FEFEFD", duration: 0.35, ease: "power2.out" });
         navDropdowns.forEach((dropdown) => {
           const texts = dropdown.querySelectorAll(".navbar2_dropdown-text");
           const icons = dropdown.querySelectorAll(".navbar2_dropdown-icon");
@@ -365,6 +408,8 @@ document.addEventListener("DOMContentLoaded", () => {
             ease: "power2.out",
           }),
         );
+        if (burgerIconFirst) gsap.to(burgerIconFirst, { color: "#000000", duration: 0.35, ease: "power2.out" });
+        if (burgerIconSecond) gsap.to(burgerIconSecond, { color: "#000000", duration: 0.35, ease: "power2.out" });
         navDropdowns.forEach((dropdown) => {
           const texts = dropdown.querySelectorAll(".navbar2_dropdown-text");
           const icons = dropdown.querySelectorAll(".navbar2_dropdown-icon");
@@ -372,6 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
             dropdown.removeEventListener("mouseenter", dropdown._dropEnter);
           if (dropdown._dropLeave)
             dropdown.removeEventListener("mouseleave", dropdown._dropLeave);
+          gsap.set(icons, { color: "#000000" });
           dropdown._dropEnter = () => {
             texts.forEach((t) =>
               gsap.to(t, {
@@ -395,14 +441,10 @@ document.addEventListener("DOMContentLoaded", () => {
               gsap.killTweensOf(t);
               gsap.set(t, { clearProps: "color" });
             });
-            icons.forEach((i) =>
-              gsap.to(i, {
-                color: "inherit",
-                duration: 0.2,
-                ease: "power2.out",
-                overwrite: "auto",
-              }),
-            );
+            icons.forEach((i) => {
+              gsap.killTweensOf(i);
+              gsap.set(i, { color: "#000000" });
+            });
           };
           dropdown.addEventListener("mouseenter", dropdown._dropEnter);
           dropdown.addEventListener("mouseleave", dropdown._dropLeave);
