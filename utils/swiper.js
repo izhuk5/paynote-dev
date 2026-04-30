@@ -1,43 +1,75 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const swiperOptions = {
-    loop: true,
-    grabCursor: true,
-    slideToClickedSlide: true,
-    keyboard: {
-      enabled: true,
-      onlyInViewport: true,
-    },
-    pagination: {
-      el: ".slider_pagination",
-      clickable: true,
-      dynamicBullets: true,
-      dynamicMainBullets: 1,
-    },
-    breakpoints: {
-      992: {
-        slidesPerView: 3,
-        spaceBetween: 86,
-      },
-      480: {
-        slidesPerView: 2,
-        spaceBetween: 32,
-      },
-      0: {
-        slidesPerView: 1,
-        spaceBetween: 0,
-      },
-    },
-    on: {
-      init: function () {
-        fixSwiperA11y(this);
-      },
-      slideChange: function () {
-        fixSwiperA11y(this);
-      },
-    },
-  };
+  let mySwiper = null;
+  let currentMode = null;
 
-  const mySwiper = new Swiper(".slider_component", swiperOptions);
+  function getSwiperOptions(isDesktop) {
+    const baseOptions = {
+      loop: true,
+      grabCursor: true,
+      allowTouchMove: true,
+      slideToClickedSlide: true,
+      keyboard: {
+        enabled: true,
+        onlyInViewport: true,
+      },
+      pagination: {
+        el: ".slider_pagination",
+        clickable: true,
+        dynamicBullets: true,
+        dynamicMainBullets: 1,
+      },
+      breakpoints: {
+        992: {
+          slidesPerView: 3,
+          spaceBetween: 86,
+        },
+        480: {
+          slidesPerView: 2,
+          spaceBetween: 32,
+        },
+        0: {
+          slidesPerView: 1,
+          spaceBetween: 0,
+        },
+      },
+      on: {
+        init: function () {
+          fixSwiperA11y(this);
+        },
+        slideChange: function () {
+          fixSwiperA11y(this);
+        },
+      },
+    };
+
+    if (isDesktop) {
+      baseOptions.freeMode = {
+        enabled: true,
+        sticky: false,
+      };
+      baseOptions.mousewheel = {
+        enabled: true,
+        forceToAxis: true,
+      };
+    }
+
+    return baseOptions;
+  }
+
+  function initSwiper() {
+    const isDesktop = window.innerWidth >= 992;
+    const newMode = isDesktop ? "desktop" : "mobile";
+
+    if (newMode === currentMode) return;
+
+    if (mySwiper) {
+      mySwiper.destroy(true, true);
+      mySwiper = null;
+    }
+
+    mySwiper = new Swiper(".slider_component", getSwiperOptions(isDesktop));
+    currentMode = newMode;
+  }
 
   function fixSwiperA11y(swiper) {
     if (swiper.wrapperEl) {
@@ -47,4 +79,12 @@ document.addEventListener("DOMContentLoaded", function () {
       slide.removeAttribute("role");
     });
   }
+
+  initSwiper();
+
+  let resizeTimeout;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(initSwiper, 200);
+  });
 });
