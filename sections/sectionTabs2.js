@@ -22,10 +22,9 @@ document.addEventListener("DOMContentLoaded", () => {
         ...sel(".tabs2_paragraph"),
         ...sel(".tabs3_how-text"),
       ].filter(Boolean),
-      links: [
-        ...sel(".tabs3_link-item"),
-        ...sel(".tabs2_link-item"),
-      ].filter(Boolean),
+      links: [...sel(".tabs3_link-item"), ...sel(".tabs2_link-item")].filter(
+        Boolean,
+      ),
       image: [...sel(".tabs3_image")].filter(Boolean),
       icons: [...sel(".tabs3_icon-svg circle")].filter(Boolean),
     };

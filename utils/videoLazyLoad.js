@@ -1,12 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Убираем пустые source теги (с пустым src)
   document.querySelectorAll("video source").forEach((source) => {
     if (!source.getAttribute("src")) {
       source.remove();
     }
   });
 
-  const videos = document.querySelectorAll("video");
+  const videos = document.querySelectorAll("video:not([lazy-target-off])");
   if (videos.length === 0) return;
 
   const observerOptions = {

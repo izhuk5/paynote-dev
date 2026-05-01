@@ -11,9 +11,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── VIDEO PLAY-ONCE LOGIC ───────────────────────────────────
   if (video) {
     video.removeAttribute("loop");
-    video.addEventListener("ended", () => {
-      video.style.display = "none";
-    }, { once: true });
+    video.addEventListener(
+      "ended",
+      () => {
+        video.style.display = "none";
+      },
+      { once: true },
+    );
   }
 
   // ─── MOBILE (≤479px) ─────────────────────────────────────────

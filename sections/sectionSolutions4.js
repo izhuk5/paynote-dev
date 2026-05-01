@@ -101,24 +101,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const sel = gsap.utils.selector(item);
     return {
       content: sel(".solutions1_paragraph").filter(Boolean),
-      imgsVisible: [
-        ...sel(".solutions1_img1:not(.is-hide)"),
-        ...sel(".solutions1_img3:not(.is-hide)"),
-      ].filter(Boolean),
-      imgsHidden: [
-        ...sel(".solutions1_img1.is-hide"),
-        ...sel(".solutions1_img3.is-hide"),
-      ].filter(Boolean),
-      images: sel(".solutions1_img2").filter(Boolean),
+      videos: sel(".solutions1_tabs-video").filter(Boolean),
     };
   };
 
-  // Flat steps: each card has 'normal', and 'swapped' if it has .is-hide images
   const steps = [];
   items.forEach((item, idx) => {
-    const { imgsHidden } = getEls(item);
     steps.push({ cardIdx: idx, phase: "normal" });
-    if (imgsHidden.length) steps.push({ cardIdx: idx, phase: "swapped" });
   });
 
   let currentStep = 0;
@@ -140,13 +129,11 @@ document.addEventListener("DOMContentLoaded", () => {
       currentCard = nextCard;
       const prevItem = items[prevCard];
       const nextItem = items[nextCard];
-      const { content, imgsVisible, imgsHidden, images } = getEls(nextItem);
+      const { content, videos } = getEls(nextItem);
       const numEl = nextItem.querySelector("[solutions-text-number]");
 
       safeSet(content, { autoAlpha: 0, y: 20 });
-      safeSet(imgsVisible, { autoAlpha: 0 });
-      safeSet(imgsHidden, { autoAlpha: 0 });
-      safeSet(images, { autoAlpha: 0 });
+      safeSet(videos, { autoAlpha: 0 });
 
       const tl = gsap.timeline({ onComplete: onDone });
       tl.to(prevItem, {
@@ -155,6 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ease: "power2.in",
         onStart: () => {
           prevItem.style.pointerEvents = "none";
+          prevItem.querySelectorAll("video").forEach((v) => v.pause());
         },
         onComplete: () => {
           prevItem.classList.remove("is-active");
@@ -163,6 +151,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tl.call(() => {
         nextItem.classList.add("is-active");
         nextItem.style.pointerEvents = "auto";
+        nextItem
+          .querySelectorAll("video")
+          .forEach((v) => v.play().catch(() => {}));
         if (numEl) animateNumber(numEl, getItemNumber(nextCard));
       });
       tl.set(nextItem, { autoAlpha: 1 });
@@ -181,90 +172,32 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       safeTo(
         tl,
-        imgsVisible,
+        videos,
         {
           autoAlpha: 1,
           duration: DURATION,
           ease: EASE,
-          stagger: STAGGER,
           overwrite: "auto",
         },
         "<",
       );
-      safeTo(
-        tl,
-        images,
-        {
-          autoAlpha: 1,
-          duration: DURATION,
-          ease: EASE,
-          stagger: STAGGER,
-          overwrite: "auto",
-        },
-        "<",
-      );
-    } else {
-      // ── Same card, phase change ──
-      const item = items[nextCard];
-      const { imgsVisible, imgsHidden } = getEls(item);
-      if (nextPhase === "swapped") {
-        const tl2 = gsap.timeline({ onComplete: onDone });
-        safeTo(tl2, imgsVisible, {
-          autoAlpha: 0,
-          duration: DURATION,
-          ease: EASE,
-          overwrite: "auto",
-        });
-        safeTo(
-          tl2,
-          imgsHidden,
-          {
-            autoAlpha: 1,
-            duration: DURATION,
-            ease: EASE,
-            stagger: STAGGER,
-            overwrite: "auto",
-          },
-          "<",
-        );
-      } else {
-        const tl2 = gsap.timeline({ onComplete: onDone });
-        safeTo(tl2, imgsHidden, {
-          autoAlpha: 0,
-          duration: DURATION,
-          ease: EASE,
-          overwrite: "auto",
-        });
-        safeTo(
-          tl2,
-          imgsVisible,
-          {
-            autoAlpha: 1,
-            duration: DURATION,
-            ease: EASE,
-            stagger: STAGGER,
-            overwrite: "auto",
-          },
-          "<",
-        );
-      }
     }
   };
+
+  // — Exclude section videos from global lazy observer, pause all —
+  section.querySelectorAll("video").forEach((v) => {
+    v.setAttribute("lazy-target-off", "");
+    v.pause();
+    v.currentTime = 0;
+  });
 
   // — Init: hide all items —
   gsap.set(items, { autoAlpha: 0, pointerEvents: "none" });
   items.forEach((it) => it.classList.remove("is-active"));
   const firstItem = items[0];
-  const {
-    content: fContent,
-    imgsVisible: fImgsVisible,
-    imgsHidden: fImgsHidden,
-    images: fImages,
-  } = getEls(firstItem);
+  const { content: fContent, videos: fVideos } = getEls(firstItem);
   safeSet(fContent, { autoAlpha: 0, y: 20 });
-  safeSet(fImgsVisible, { autoAlpha: 0 });
-  safeSet(fImgsHidden, { autoAlpha: 0 });
-  safeSet(fImages, { autoAlpha: 0 });
+  safeSet(fVideos, { autoAlpha: 0 });
 
   // — gsap.matchMedia: Responsive & reduced-motion ────────
   const mm = gsap.matchMedia();
@@ -299,16 +232,13 @@ document.addEventListener("DOMContentLoaded", () => {
           });
           safeTo(
             revealTl,
-            fImgsVisible,
-            { autoAlpha: 1, duration: dur, ease: EASE, stagger },
+            fVideos,
+            { autoAlpha: 1, duration: dur, ease: EASE },
             "<",
           );
-          safeTo(
-            revealTl,
-            fImages,
-            { autoAlpha: 1, duration: dur, ease: EASE, stagger },
-            "<",
-          );
+          firstItem
+            .querySelectorAll("video")
+            .forEach((v) => v.play().catch(() => {}));
           const numEl = firstItem.querySelector("[solutions-text-number]");
           if (numEl && !reduced) animateNumber(numEl, getItemNumber(0));
         },
