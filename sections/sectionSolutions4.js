@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .section_solutions1 .solutions1_number .slot-wrapper { display: flex; flex-direction: row; height: 100%; }
     .section_solutions1 .solutions1_number .slot-digit { height: 100%; overflow: hidden; }
     .section_solutions1 .slot-reel { transform-style: flat; will-change: auto; backface-visibility: visible; }
-    .section_solutions1 .solutions1_tabs-video.is-hide { display: block; }
+    .section_solutions1 .solutions1_tabs-video.is-hide { display: block; position: absolute; inset: 0; width: 100%; height: 100%; }
     @media screen and (max-width: 479px) {
       .section_solutions1 .solutions1_number { font-size: 2.5rem; }
     }
