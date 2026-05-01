@@ -107,30 +107,22 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  const setupVideoSwap = (mainVids, hideVids) => {
-    if (!hideVids.length || !mainVids.length) return;
-    mainVids.forEach((wrapper) => {
-      const vid =
-        wrapper.tagName === "VIDEO" ? wrapper : wrapper.querySelector("video");
-      if (!vid) return;
-      vid.addEventListener(
-        "ended",
-        () => {
-          gsap.to(mainVids, { autoAlpha: 0, duration: 0.4, ease: "power2.in" });
-          gsap.to(hideVids, { autoAlpha: 1, duration: 0.4, ease: "power2.out", delay: 0.15 });
-          hideVids.forEach((h) => {
-            const hv = h.tagName === "VIDEO" ? h : h.querySelector("video");
-            if (hv) { hv.currentTime = 0; hv.play().catch(() => {}); }
-          });
-        },
-        { once: true },
-      );
+  const playVids = (els) =>
+    els.forEach((el) => {
+      const v = el.tagName === "VIDEO" ? el : el.querySelector("video");
+      if (v) v.play().catch(() => {});
     });
-  };
+  const pauseVids = (els) =>
+    els.forEach((el) => {
+      const v = el.tagName === "VIDEO" ? el : el.querySelector("video");
+      if (v) { v.pause(); v.currentTime = 0; }
+    });
 
   const steps = [];
   items.forEach((item, idx) => {
+    const { hideVideos } = getEls(item);
     steps.push({ cardIdx: idx, phase: "normal" });
+    if (hideVideos.length) steps.push({ cardIdx: idx, phase: "swapped" });
   });
 
   let currentStep = 0;
@@ -159,10 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
       safeSet(videos, { autoAlpha: 0 });
       if (hideVideos.length) {
         gsap.set(hideVideos, { autoAlpha: 0 });
-        hideVideos.forEach((h) => {
-          const hv = h.tagName === "VIDEO" ? h : h.querySelector("video");
-          if (hv) { hv.pause(); hv.currentTime = 0; }
-        });
+        pauseVids(hideVideos);
       }
 
       const tl = gsap.timeline({ onComplete: onDone });
@@ -181,37 +170,30 @@ document.addEventListener("DOMContentLoaded", () => {
       tl.call(() => {
         nextItem.classList.add("is-active");
         nextItem.style.pointerEvents = "auto";
-        nextItem.querySelectorAll("video").forEach((v) => {
-          if (!v.closest(".solutions1_tabs-video.is-hide")) v.play().catch(() => {});
-        });
+        playVids(videos);
         if (numEl) animateNumber(numEl, getItemNumber(nextCard));
-        if (nextCard === 0 && hideVideos.length) setupVideoSwap(videos, hideVideos);
       });
       tl.set(nextItem, { autoAlpha: 1 });
-      safeTo(
-        tl,
-        content,
-        {
-          autoAlpha: 1,
-          y: 0,
-          duration: DURATION,
-          ease: EASE,
-          stagger: STAGGER,
-          overwrite: "auto",
-        },
-        "<",
-      );
-      safeTo(
-        tl,
-        videos,
-        {
-          autoAlpha: 1,
-          duration: DURATION,
-          ease: EASE,
-          overwrite: "auto",
-        },
-        "<",
-      );
+      safeTo(tl, content, { autoAlpha: 1, y: 0, duration: DURATION, ease: EASE, stagger: STAGGER, overwrite: "auto" }, "<");
+      safeTo(tl, videos, { autoAlpha: 1, duration: DURATION, ease: EASE, overwrite: "auto" }, "<");
+    } else {
+      // ── Same card, phase change ──
+      const item = items[nextCard];
+      const { videos, hideVideos } = getEls(item);
+
+      if (nextPhase === "swapped") {
+        pauseVids(videos);
+        gsap.timeline({ onComplete: onDone })
+          .to(videos, { autoAlpha: 0, duration: DURATION, ease: EASE, overwrite: "auto" })
+          .call(() => playVids(hideVideos))
+          .to(hideVideos, { autoAlpha: 1, duration: DURATION, ease: EASE, overwrite: "auto" }, "<");
+      } else {
+        pauseVids(hideVideos);
+        gsap.timeline({ onComplete: onDone })
+          .to(hideVideos, { autoAlpha: 0, duration: DURATION, ease: EASE, overwrite: "auto" })
+          .call(() => playVids(videos))
+          .to(videos, { autoAlpha: 1, duration: DURATION, ease: EASE, overwrite: "auto" }, "<");
+      }
     }
   };
 
@@ -268,10 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { autoAlpha: 1, duration: dur, ease: EASE },
             "<",
           );
-          firstItem.querySelectorAll("video").forEach((v) => {
-            if (!v.closest(".solutions1_tabs-video.is-hide")) v.play().catch(() => {});
-          });
-          if (fHideVideos.length && !reduced) setupVideoSwap(fVideos, fHideVideos);
+          playVids(fVideos);
           const numEl = firstItem.querySelector("[solutions-text-number]");
           if (numEl && !reduced) animateNumber(numEl, getItemNumber(0));
         },
