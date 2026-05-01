@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     .section_solutions1 .solutions1_number .slot-wrapper { display: flex; flex-direction: row; height: 100%; }
     .section_solutions1 .solutions1_number .slot-digit { height: 100%; overflow: hidden; }
     .section_solutions1 .slot-reel { transform-style: flat; will-change: auto; backface-visibility: visible; }
+    .section_solutions1 .solutions1_tabs-video.is-hide { display: block; }
     @media screen and (max-width: 479px) {
       .section_solutions1 .solutions1_number { font-size: 2.5rem; }
     }
@@ -101,8 +102,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const sel = gsap.utils.selector(item);
     return {
       content: sel(".solutions1_paragraph").filter(Boolean),
-      videos: sel(".solutions1_tabs-video").filter(Boolean),
+      videos: sel(".solutions1_tabs-video:not(.is-hide)").filter(Boolean),
+      hideVideos: sel(".solutions1_tabs-video.is-hide").filter(Boolean),
     };
+  };
+
+  const setupVideoSwap = (mainVids, hideVids) => {
+    if (!hideVids.length || !mainVids.length) return;
+    mainVids.forEach((wrapper) => {
+      const vid =
+        wrapper.tagName === "VIDEO" ? wrapper : wrapper.querySelector("video");
+      if (!vid) return;
+      vid.addEventListener(
+        "ended",
+        () => {
+          gsap.to(mainVids, { autoAlpha: 0, duration: 0.4, ease: "power2.in" });
+          gsap.to(hideVids, { autoAlpha: 1, duration: 0.4, ease: "power2.out", delay: 0.15 });
+          hideVids.forEach((h) => {
+            const hv = h.tagName === "VIDEO" ? h : h.querySelector("video");
+            if (hv) { hv.currentTime = 0; hv.play().catch(() => {}); }
+          });
+        },
+        { once: true },
+      );
+    });
   };
 
   const steps = [];
@@ -129,11 +152,18 @@ document.addEventListener("DOMContentLoaded", () => {
       currentCard = nextCard;
       const prevItem = items[prevCard];
       const nextItem = items[nextCard];
-      const { content, videos } = getEls(nextItem);
+      const { content, videos, hideVideos } = getEls(nextItem);
       const numEl = nextItem.querySelector("[solutions-text-number]");
 
       safeSet(content, { autoAlpha: 0, y: 20 });
       safeSet(videos, { autoAlpha: 0 });
+      if (hideVideos.length) {
+        gsap.set(hideVideos, { autoAlpha: 0 });
+        hideVideos.forEach((h) => {
+          const hv = h.tagName === "VIDEO" ? h : h.querySelector("video");
+          if (hv) { hv.pause(); hv.currentTime = 0; }
+        });
+      }
 
       const tl = gsap.timeline({ onComplete: onDone });
       tl.to(prevItem, {
@@ -151,10 +181,11 @@ document.addEventListener("DOMContentLoaded", () => {
       tl.call(() => {
         nextItem.classList.add("is-active");
         nextItem.style.pointerEvents = "auto";
-        nextItem
-          .querySelectorAll("video")
-          .forEach((v) => v.play().catch(() => {}));
+        nextItem.querySelectorAll("video").forEach((v) => {
+          if (!v.closest(".solutions1_tabs-video.is-hide")) v.play().catch(() => {});
+        });
         if (numEl) animateNumber(numEl, getItemNumber(nextCard));
+        if (nextCard === 0 && hideVideos.length) setupVideoSwap(videos, hideVideos);
       });
       tl.set(nextItem, { autoAlpha: 1 });
       safeTo(
@@ -195,9 +226,10 @@ document.addEventListener("DOMContentLoaded", () => {
   gsap.set(items, { autoAlpha: 0, pointerEvents: "none" });
   items.forEach((it) => it.classList.remove("is-active"));
   const firstItem = items[0];
-  const { content: fContent, videos: fVideos } = getEls(firstItem);
+  const { content: fContent, videos: fVideos, hideVideos: fHideVideos } = getEls(firstItem);
   safeSet(fContent, { autoAlpha: 0, y: 20 });
   safeSet(fVideos, { autoAlpha: 0 });
+  if (fHideVideos.length) gsap.set(fHideVideos, { autoAlpha: 0 });
 
   // — gsap.matchMedia: Responsive & reduced-motion ────────
   const mm = gsap.matchMedia();
@@ -236,9 +268,10 @@ document.addEventListener("DOMContentLoaded", () => {
             { autoAlpha: 1, duration: dur, ease: EASE },
             "<",
           );
-          firstItem
-            .querySelectorAll("video")
-            .forEach((v) => v.play().catch(() => {}));
+          firstItem.querySelectorAll("video").forEach((v) => {
+            if (!v.closest(".solutions1_tabs-video.is-hide")) v.play().catch(() => {});
+          });
+          if (fHideVideos.length && !reduced) setupVideoSwap(fVideos, fHideVideos);
           const numEl = firstItem.querySelector("[solutions-text-number]");
           if (numEl && !reduced) animateNumber(numEl, getItemNumber(0));
         },
