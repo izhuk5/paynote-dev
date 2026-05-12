@@ -1,3 +1,7 @@
+document
+  .querySelectorAll(".section_solutions1 .solutions1_item video")
+  .forEach((v) => v.setAttribute("lazy-target-off", ""));
+
 document.addEventListener("DOMContentLoaded", () => {
   // ── Inject CSS — Designer не видит JS, стили применяются только в браузере ──
   const style = document.createElement("style");
@@ -88,6 +92,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const items = gsap.utils.toArray(".section_solutions1 .solutions1_item");
   if (!section || !items.length) return;
 
+  const itemVideos = items.map((item) => item.querySelector("video"));
+  let sectionInView = false;
+
+  new IntersectionObserver(
+    ([entry]) => {
+      sectionInView = entry.isIntersecting;
+      syncVideos();
+    },
+    { threshold: 0 },
+  ).observe(section);
+
+  function syncVideos() {
+    itemVideos.forEach((video, i) => {
+      if (!video) return;
+      if (i === currentCard && sectionInView) {
+        if (video.paused) video.play().catch(() => {});
+      } else {
+        if (!video.paused) video.pause();
+      }
+    });
+  }
+
   const itemNumbers = items.map((item) => {
     const el = item.querySelector("[solutions-text-number]");
     return el ? el.textContent.trim() : "";
@@ -138,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (nextCard !== prevCard) {
       // ── Card switch ──
       currentCard = nextCard;
+      syncVideos();
       const prevItem = items[prevCard];
       const nextItem = items[nextCard];
       const { content, imgsVisible, imgsHidden, images } = getEls(nextItem);

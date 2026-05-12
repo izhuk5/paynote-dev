@@ -1,6 +1,10 @@
-document.addEventListener("DOMContentLoaded", () =>
-  requestAnimationFrame(initFeatures9),
-);
+document
+  .querySelectorAll(".features9_card video")
+  .forEach((v) => v.setAttribute("lazy-target-off", ""));
+
+document.addEventListener("DOMContentLoaded", () => {
+  requestAnimationFrame(initFeatures9);
+});
 
 function initFeatures9() {
   gsap.registerPlugin(ScrollTrigger);
@@ -19,50 +23,64 @@ function initFeatures9() {
     FADE_RANGE: 0.12,
   };
 
-  // The easing curve used when a card slides out of view
   const cardExitEase = gsap.parseEase("power2.inOut");
-
-  // The main section element — used to track scroll position
   const sectionWrapper = document.querySelector(".features9_component");
-
-  // An empty element at the bottom of the section that creates scroll space
   const scrollSpacer = document.querySelector(".features9_spacer");
-
-  // Cards are read in DOM order — first card in HTML = first to show in the animation.
   const cards = gsap.utils.toArray(".features9_card");
-
   const titles = gsap.utils.toArray(".features9_title-item");
   const TOTAL = cards.length;
 
-  // Safety guard: skip init if component is absent on this Webflow page
   if (!sectionWrapper || !scrollSpacer || TOTAL === 0) return;
 
-  // How many pixels a card moves down to fully leave the screen.
-  // This value is set in computeLayout() because it depends on card height.
   let exitPx = 0;
+  let cachedHeight = 0;
+  let cachedWindowHeight = window.innerHeight;
+  let prevWidth = window.innerWidth;
 
-  // Returns the total scroll distance (in pixels) needed to go through all cards
-  const getTotalScrollDistance = () =>
-    (SCROLL_VH / 100) * window.innerHeight * TOTAL;
+  const cardVideos = cards.map((card) => card.querySelector("video"));
+  let currentActiveIndex = 0;
+  let sectionInView = false;
 
-  // Temporarily makes a title visible to measure its real height, then restores it.
-  // We need this because titles are hidden (opacity: 0) by default.
+  new IntersectionObserver(
+    ([entry]) => {
+      sectionInView = entry.isIntersecting;
+      syncVideos();
+    },
+    { threshold: 0 },
+  ).observe(sectionWrapper);
+
+  function syncVideos() {
+    cardVideos.forEach((video, i) => {
+      if (!video) return;
+      if (i === currentActiveIndex && sectionInView) {
+        if (video.paused) video.play().catch(() => {});
+      } else {
+        if (!video.paused) video.pause();
+      }
+    });
+  }
+
   function measureTitleHeight(titleEl) {
     const savedStyles = titleEl.style.cssText;
     titleEl.style.cssText +=
-      ";opacity:1!important;transform:none!important;transition:none!important;position:relative!important;display:flex!important";
+      ";opacity:1!important;transform:none!important;display:flex!important;position:relative!important";
     const height = titleEl.offsetHeight;
     titleEl.style.cssText = savedStyles;
     return height;
   }
 
-  // Reads card size from CSS and updates layout-dependent values.
-  // Runs on page load and every time the window is resized.
+  function updateScrollValues() {
+    cachedWindowHeight = window.innerHeight;
+    cachedHeight = (SCROLL_VH / 100) * cachedWindowHeight * TOTAL;
+  }
+
+  const getTotalScrollDistance = () => cachedHeight;
+
   function computeLayout() {
     const cardHeight = cards[0].getBoundingClientRect().height;
     exitPx = cardHeight * CARD_STACK_CONFIG.EXIT_MULT;
-
     const titleHeight = measureTitleHeight(titles[0]);
+
     const cardTop =
       CARD_STACK_CONFIG.EYEBROW_TOP +
       titleHeight +
@@ -70,28 +88,21 @@ function initFeatures9() {
       CARD_STACK_CONFIG.PEEK_PX * CARD_STACK_CONFIG.MAX_DEPTH;
 
     cards.forEach((card) => {
-      gsap.set(card, { top: cardTop });
+      gsap.set(card, { top: cardTop, force3D: true });
     });
   }
 
-  // Sets the height of the scroll spacer so the page has enough scroll room for all cards
   const setScrollSpacerHeight = () => {
-    scrollSpacer.style.height = `${getTotalScrollDistance() - window.innerHeight}px`;
+    scrollSpacer.style.height = `${getTotalScrollDistance() - cachedWindowHeight}px`;
   };
 
-  // Returns a number from 0 to TOTAL showing how far the user has scrolled through the animation.
-  // 0 = start, 1 = first card done, 2 = second card done, and so on.
   const getScrollProgress = () => {
-    const scrolled = -sectionWrapper.getBoundingClientRect().top;
-    return gsap.utils.clamp(
-      0,
-      TOTAL,
-      (scrolled / getTotalScrollDistance()) * TOTAL,
-    );
+    const rect = sectionWrapper.getBoundingClientRect();
+    const scrolled = -rect.top;
+    const totalDist = getTotalScrollDistance();
+    return gsap.utils.clamp(0, TOTAL, (scrolled / totalDist) * TOTAL);
   };
 
-  // Updates every card's position, scale, and opacity based on current scroll progress.
-  // Called on every scroll event by ScrollTrigger.
   function render() {
     const progress = getScrollProgress();
     const {
@@ -105,19 +116,16 @@ function initFeatures9() {
 
     cards.forEach((card, cardIndex) => {
       const cardProgress = progress - cardIndex;
-
       let translateY = 0;
       let scale = 1;
       let opacity = 1;
       let zIndex = TOTAL - cardIndex;
 
       if (cardProgress >= 1) {
-        // Card has fully exited — hide it
         translateY = exitPx;
         opacity = 0;
         zIndex = 0;
       } else if (cardProgress >= 0) {
-        // Card is currently sliding out
         translateY = exitPx * cardExitEase(cardProgress);
         opacity =
           cardProgress > FADE_START
@@ -125,10 +133,8 @@ function initFeatures9() {
             : 1;
         zIndex = TOTAL + 1;
       } else {
-        // Card is waiting in the stack behind the active card
         const stackDepth = Math.min(-cardProgress, MAX_DEPTH + DEPTH_BUFFER);
         if (stackDepth > MAX_DEPTH) {
-          // Card is too deep in the stack — hide it
           opacity = 0;
           zIndex = 0;
           translateY = -PEEK_PX * MAX_DEPTH;
@@ -140,46 +146,59 @@ function initFeatures9() {
         }
       }
 
-      gsap.set(card, { zIndex, opacity, y: translateY, scale });
+      gsap.set(card, {
+        zIndex,
+        opacity,
+        y: translateY,
+        scale,
+        force3D: true,
+      });
     });
 
     const activeIndex = Math.min(
       TOTAL - 1,
       Math.floor(progress + (1 - CARD_STACK_CONFIG.TITLE_SWITCH)),
     );
-    titles.forEach((title, i) =>
-      title.classList.toggle("is-active", i === activeIndex),
-    );
+
+    titles.forEach((title, i) => {
+      title.classList.toggle("is-active", i === activeIndex);
+    });
+
+    currentActiveIndex = activeIndex;
+    syncVideos();
   }
 
-  // Creates the ScrollTrigger that watches the section and calls render() on every scroll update
   function initScrollTrigger() {
     ScrollTrigger.create({
       trigger: sectionWrapper,
       start: "top top",
-      end: () => `+=${getTotalScrollDistance() - window.innerHeight}`,
+      end: () => `+=${getTotalScrollDistance() - cachedWindowHeight}`,
       onUpdate: render,
+      invalidateOnRefresh: true,
     });
   }
 
-  // Recalculates layout when the window is resized.
-  // Debounced by 150ms so it doesn't run on every pixel of resize.
   let resizeTimer;
   const onResize = () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      computeLayout();
-      setScrollSpacerHeight();
-      ScrollTrigger.refresh();
-      render();
-    }, 150);
+      const newWidth = window.innerWidth;
+      if (newWidth !== prevWidth) {
+        prevWidth = newWidth;
+        updateScrollValues();
+        computeLayout();
+        setScrollSpacerHeight();
+        ScrollTrigger.refresh();
+        render();
+      }
+    }, 200);
   };
 
+  updateScrollValues();
   computeLayout();
-  gsap.set(cards, { xPercent: -50, force3D: true });
   setScrollSpacerHeight();
-  titles[0].classList.add("is-active");
   render();
   initScrollTrigger();
+
   window.addEventListener("resize", onResize);
 }
