@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
       links: [...sel(".tabs3_link-item"), ...sel(".tabs2_link-item")].filter(
         Boolean,
       ),
+      linkParagraphs: [...sel(".tabs3_link-paragraph")].filter(Boolean),
       image: [...sel(".tabs3_image")].filter(Boolean),
       icons: [...sel(".tabs3_icon-svg circle")].filter(Boolean),
     };
@@ -40,9 +41,10 @@ document.addEventListener("DOMContentLoaded", () => {
           : { display: "none", opacity: 0 },
       );
     });
-    const { text, links, image, icons } = getEls(panes[index]);
+    const { text, links, linkParagraphs, image, icons } = getEls(panes[index]);
     if (text.length) gsap.set(text, { opacity: 1, y: 0 });
     if (links.length) gsap.set(links, { opacity: 1, y: 0 });
+    if (linkParagraphs.length) gsap.set(linkParagraphs, { color: "#CDCED3" });
     if (image.length) gsap.set(image, { opacity: 1, scale: 1 });
     if (icons.length) {
       setStrokeImportant(icons, "#fefefd");
@@ -74,11 +76,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const prev = panes[current];
     const next = panes[index];
-    const { text, links, image, icons } = getEls(next);
+    const { text, links, linkParagraphs, image, icons } = getEls(next);
     current = index;
 
     if (text.length) gsap.set(text, { opacity: 0, y: 16 });
     if (links.length) gsap.set(links, { opacity: 0, y: 16 });
+    if (linkParagraphs.length) gsap.set(linkParagraphs, { color: "#808080" });
     if (image.length) gsap.set(image, { opacity: 0, scale: 0.97 });
     if (icons.length) setStrokeImportant(icons, "#fefefd");
 
@@ -122,6 +125,18 @@ document.addEventListener("DOMContentLoaded", () => {
           force3D: true,
         },
         "-=0.1",
+      );
+
+    if (linkParagraphs.length)
+      activeTl.to(
+        linkParagraphs,
+        {
+          color: "#CDCED3",
+          duration: 0.4,
+          ease: "power2.out",
+          stagger: 0.08,
+        },
+        "-=0.3",
       );
 
     if (icons.length)
