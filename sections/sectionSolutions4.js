@@ -16,20 +16,18 @@ document.addEventListener("DOMContentLoaded", () => {
       inset: 0;
       width: 100%;
       height: 100%;
-      opacity: 0;
-      visibility: hidden;
       pointer-events: none;
     }
-    .section_solutions1 .solutions1_item.is-active {
-      z-index: 10;
-      opacity: 1;
-      visibility: visible;
-      pointer-events: auto;
-    }
+    .section_solutions1 .solutions1_item.is-active { z-index: 10; pointer-events: auto; }
     .section_solutions1 .solutions1_number { font-size: 3rem; line-height: 1.24; height: 1.24em; overflow: hidden; clip-path: inset(0); }
     .section_solutions1 .solutions1_number .slot-wrapper { display: flex; flex-direction: row; height: 100%; }
     .section_solutions1 .solutions1_number .slot-digit { height: 100%; overflow: hidden; }
-    .section_solutions1 .slot-reel { transform-style: flat; will-change: auto; backface-visibility: visible; }
+    .section_solutions1 .slot-reel { display: flex; flex-direction: column; will-change: transform; }
+    .section_solutions1 .slot-num { height: 1.24em; flex-shrink: 0; }
+    .section_solutions1 .solutions1_paragraph,
+    .section_solutions1 .solutions1_img1,
+    .section_solutions1 .solutions1_img2,
+    .section_solutions1 .solutions1_img3 { will-change: transform, opacity; }
     @media screen and (max-width: 479px) {
       .section_solutions1 .solutions1_number { font-size: 2.5rem; }
     }
@@ -46,44 +44,44 @@ document.addEventListener("DOMContentLoaded", () => {
     if (targets && targets.length) tl.to(targets, props, pos);
   };
 
-  // ── Slot Number — чистая 2D анімація ─────────────────────────
+  // ── Slot Number — yPercent, без layout read ───────────────────
   const animateNumber = (el, numberStr) => {
     if (!el || !numberStr) return;
-    el.innerHTML = "";
+    el.replaceChildren();
     const digits = String(numberStr)
       .split("")
       .filter((ch) => /\d/.test(ch));
     if (!digits.length) return;
     const wrapper = document.createElement("div");
     wrapper.className = "slot-wrapper";
-    el.appendChild(wrapper);
+    const reels = [];
     digits.forEach((digit, i) => {
       const digitDiv = document.createElement("div");
       digitDiv.className = "slot-digit";
       const reel = document.createElement("div");
       reel.className = "slot-reel";
-      Array.from({ length: 10 }, (_, n) => {
+      for (let n = 0; n < 10; n++) {
         const item = document.createElement("div");
         item.className = "slot-num";
         item.textContent = n;
         reel.appendChild(item);
-      });
+      }
       digitDiv.appendChild(reel);
       wrapper.appendChild(digitDiv);
-      gsap.delayedCall(0, () => {
-        const itemH = reel.firstElementChild.getBoundingClientRect().height;
-        const targetY = -(parseInt(digit, 10) * itemH);
-        gsap.fromTo(
-          reel,
-          { y: 0 },
-          {
-            y: targetY,
-            duration: gsap.utils.clamp(0.6, 2, 1 + i * 0.2),
-            ease: "power3.out",
-            overwrite: true,
-          },
-        );
-      });
+      reels.push({ reel, digit: parseInt(digit, 10), i });
+    });
+    el.appendChild(wrapper);
+    reels.forEach(({ reel, digit, i }) => {
+      gsap.fromTo(
+        reel,
+        { yPercent: 0, force3D: true },
+        {
+          yPercent: -digit * 10,
+          duration: gsap.utils.clamp(0.6, 2, 1 + i * 0.2),
+          ease: "power3.out",
+          overwrite: true,
+        },
+      );
     });
   };
 
@@ -123,18 +121,23 @@ document.addEventListener("DOMContentLoaded", () => {
   let scrollTarget = 0;
   let processing = false;
   let sectionPin = null;
-  let scrollNavMode = "scroll"; // "scroll" = mobile/touch, "wheel" = desktop
+  let scrollNavMode = "scroll";
+  let syncScrollRaf = 0;
+
+  const scrollPinToCard = (cardIdx) => {
+    if (!sectionPin) return;
+    const range = sectionPin.end - sectionPin.start;
+    if (range <= 0) return;
+    const progress = items.length > 1 ? cardIdx / (items.length - 1) : 0;
+    sectionPin.scroll(sectionPin.start + progress * range);
+  };
 
   const syncPinScroll = () => {
     if (!sectionPin || scrollNavMode !== "wheel") return;
-    const range = sectionPin.end - sectionPin.start;
-    if (range <= 0) return;
-    const progress = items.length > 1 ? currentCard / (items.length - 1) : 0;
-    window.scrollTo({
-      top: sectionPin.start + progress * range,
-      behavior: "instant",
+    cancelAnimationFrame(syncScrollRaf);
+    syncScrollRaf = requestAnimationFrame(() => {
+      scrollPinToCard(currentCard);
     });
-    ScrollTrigger.update();
   };
 
   const processQueue = () => {
@@ -156,9 +159,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const elsCache = new WeakMap();
   const getEls = (item) => {
+    if (elsCache.has(item)) return elsCache.get(item);
     const sel = gsap.utils.selector(item);
-    return {
+    const els = {
       content: sel(".solutions1_paragraph").filter(Boolean),
       imgsVisible: [
         ...sel(".solutions1_img1:not(.is-hide)"),
@@ -170,6 +175,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ].filter(Boolean),
       images: sel(".solutions1_img2").filter(Boolean),
     };
+    elsCache.set(item, els);
+    return els;
   };
 
   // Flat steps: each card has 'normal', and 'swapped' if it has .is-hide images
@@ -209,8 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (nextCard < 0) return false;
     if (nextCard >= items.length) {
       if (currentCard === items.length - 1 && !processing && sectionPin) {
-        window.scrollTo({ top: sectionPin.end, behavior: "instant" });
-        ScrollTrigger.update();
+        sectionPin.scroll(sectionPin.end);
       }
       return false;
     }
@@ -250,19 +256,20 @@ document.addEventListener("DOMContentLoaded", () => {
         autoAlpha: 0,
         duration: 0.25,
         ease: "power2.in",
-        onStart: () => {
-          prevItem.style.pointerEvents = "none";
-        },
         onComplete: () => {
           prevItem.classList.remove("is-active");
+          gsap.set(prevItem, {
+            pointerEvents: "none",
+            clearProps: "transform",
+          });
         },
       });
       tl.call(() => {
         nextItem.classList.add("is-active");
-        nextItem.style.pointerEvents = "auto";
+        gsap.set(nextItem, { pointerEvents: "auto" });
         if (numEl) animateNumber(numEl, getItemNumber(nextCard));
       });
-      tl.set(nextItem, { autoAlpha: 1 });
+      tl.set(nextItem, { autoAlpha: 1, force3D: true });
       safeTo(
         tl,
         content,
@@ -348,8 +355,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // — Init: hide all items —
-  gsap.set(items, { autoAlpha: 0, pointerEvents: "none" });
+  // — Init: hide all items (autoAlpha, без CSS opacity) —
+  gsap.set(items, { autoAlpha: 0, pointerEvents: "none", force3D: true });
   items.forEach((it) => it.classList.remove("is-active"));
   const firstItem = items[0];
   const {
@@ -384,9 +391,12 @@ document.addEventListener("DOMContentLoaded", () => {
         start: "top 75%",
         once: true,
         onEnter: () => {
-          gsap.set(firstItem, { autoAlpha: 1 });
+          gsap.set(firstItem, {
+            autoAlpha: 1,
+            pointerEvents: "auto",
+            force3D: true,
+          });
           firstItem.classList.add("is-active");
-          firstItem.style.pointerEvents = "auto";
           const revealTl = gsap.timeline();
           safeTo(revealTl, fContent, {
             autoAlpha: 1,
@@ -458,6 +468,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       return () => {
         if (desktopMode) window.removeEventListener("wheel", onWheel);
+        cancelAnimationFrame(syncScrollRaf);
         sectionPin?.kill();
         sectionPin = null;
         scrollNavMode = "scroll";
