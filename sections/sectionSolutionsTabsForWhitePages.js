@@ -403,6 +403,12 @@ document.addEventListener("DOMContentLoaded", () => {
         let wheelAccum = 0;
         const WHEEL_THRESHOLD = 400;
 
+        const releasePin = () => {
+          if (!sectionPin) return;
+          window.scrollTo({ top: sectionPin.end + 1, behavior: "instant" });
+          ScrollTrigger.update();
+        };
+
         const onWheel = (e) => {
           if (!desktopMode || !sectionPin?.isActive) return;
 
@@ -414,13 +420,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 : e.deltaY;
           const dir = delta > 0 ? 1 : -1;
 
-          if (wheelAccum !== 0 && Math.sign(wheelAccum) !== dir) wheelAccum = 0;
-          wheelAccum += delta;
-
           if (currentTabIndex + dir < 0) {
             wheelAccum = 0;
             return;
           }
+
+          if (currentTabIndex >= cards.length - 1 && dir > 0) {
+            wheelAccum = 0;
+            releasePin();
+            return;
+          }
+
+          if (wheelAccum !== 0 && Math.sign(wheelAccum) !== dir) wheelAccum = 0;
+          wheelAccum += delta;
 
           e.preventDefault();
           if (Math.abs(wheelAccum) < WHEEL_THRESHOLD) return;
