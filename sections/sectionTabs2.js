@@ -1,4 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
+  gsap.registerPlugin(ScrollTrigger);
+
   const section = document.querySelector(".section_tabs2");
   const panes = gsap.utils.toArray(".tabs2_pane.is-slider");
 
@@ -7,7 +9,15 @@ document.addEventListener("DOMContentLoaded", () => {
   gsap.set(section, { height: "100vh", overflow: "hidden" });
 
   let current = 0;
+  let currentStep = 0;
+  let scrollTarget = 0;
+  let processing = false;
+  let sectionPin = null;
+  let scrollNavMode = "scroll";
+  let syncScrollRaf = 0;
   let activeTl = null;
+
+  const steps = panes.map((_, idx) => ({ cardIdx: idx, phase: "normal" }));
 
   const setStrokeImportant = (els, color) => {
     els.forEach((el) => el.style.setProperty("stroke", color, "important"));
@@ -29,6 +39,77 @@ document.addEventListener("DOMContentLoaded", () => {
       image: [...sel(".tabs3_image")].filter(Boolean),
       icons: [...sel(".tabs3_icon-svg circle")].filter(Boolean),
     };
+  };
+
+  const firstStepOfCard = (cardIdx) => cardIdx;
+  const lastStepOfCard = (cardIdx) => cardIdx;
+
+  const scrollPinToCard = (cardIdx) => {
+    if (!sectionPin) return;
+    const range = sectionPin.end - sectionPin.start;
+    if (range <= 0) return;
+    const progress = panes.length > 1 ? cardIdx / (panes.length - 1) : 0;
+    sectionPin.scroll(sectionPin.start + progress * range);
+  };
+
+  const syncPinScroll = () => {
+    if (!sectionPin || scrollNavMode !== "wheel") return;
+    cancelAnimationFrame(syncScrollRaf);
+    syncScrollRaf = requestAnimationFrame(() => {
+      scrollPinToCard(current);
+    });
+  };
+
+  const processQueue = () => {
+    if (processing) return;
+    if (currentStep < scrollTarget) {
+      processing = true;
+      goToStep(currentStep + 1, () => {
+        processing = false;
+        processQueue();
+      });
+    } else if (currentStep > scrollTarget) {
+      processing = true;
+      goToStep(currentStep - 1, () => {
+        processing = false;
+        processQueue();
+      });
+    } else {
+      syncPinScroll();
+    }
+  };
+
+  const setTargetForCard = (cardIdx) => {
+    const target =
+      cardIdx > current ? firstStepOfCard(cardIdx) : lastStepOfCard(cardIdx);
+    if (target !== scrollTarget) {
+      scrollTarget = target;
+      processQueue();
+    }
+  };
+
+  const navigateCard = (dir) => {
+    const nextCard = current + dir;
+    if (nextCard < 0) return false;
+    if (nextCard >= panes.length) {
+      if (current === panes.length - 1 && !processing && sectionPin) {
+        sectionPin.scroll(sectionPin.end);
+      }
+      return false;
+    }
+    scrollTarget =
+      dir > 0 ? firstStepOfCard(nextCard) : lastStepOfCard(nextCard);
+    processQueue();
+    return true;
+  };
+
+  const goToStep = (nextStep, onDone = null) => {
+    if (nextStep === currentStep || nextStep < 0 || nextStep >= steps.length) {
+      onDone?.();
+      return;
+    }
+    currentStep = nextStep;
+    switchTo(steps[nextStep].cardIdx, onDone);
   };
 
   const forcePane = (index) => {
@@ -62,10 +143,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
     current = index;
+    currentStep = index;
+    scrollTarget = index;
   };
 
-  const switchTo = (index) => {
-    if (index === current || index < 0 || index >= panes.length) return;
+  const switchTo = (index, onDone = null) => {
+    if (index === current || index < 0 || index >= panes.length) {
+      onDone?.();
+      return;
+    }
 
     if (activeTl) activeTl.kill();
 
@@ -85,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (image.length) gsap.set(image, { opacity: 0, scale: 0.97 });
     if (icons.length) setStrokeImportant(icons, "#fefefd");
 
-    activeTl = gsap.timeline();
+    activeTl = gsap.timeline({ onComplete: onDone });
     activeTl
       .to(prev, {
         opacity: 0,
@@ -177,73 +263,67 @@ document.addEventListener("DOMContentLoaded", () => {
   forcePane(0);
 
   const mm = gsap.matchMedia();
+  mm.add(
+    {
+      isDesktop: "(min-width: 992px)",
+      isMobile: "(max-width: 991px)",
+    },
+    (ctx) => {
+      const { isDesktop, isMobile } = ctx.conditions;
+      const desktopMode = isDesktop !== false && !isMobile;
+      scrollNavMode = desktopMode ? "wheel" : "scroll";
 
-  // ── Desktop (>991px): wheel-based switching ──────────────────
-  mm.add("(min-width: 992px)", () => {
-    const pinnedST = ScrollTrigger.create({
-      trigger: section,
-      start: "top top",
-      end: () => `+=${window.innerHeight}`,
-      pin: true,
-      pinSpacing: true,
-    });
+      sectionPin = ScrollTrigger.create({
+        trigger: section,
+        start: "top top",
+        end: () => `+=${window.innerHeight * panes.length}`,
+        pin: true,
+        pinSpacing: true,
+        onUpdate: (self) => {
+          if (scrollNavMode === "wheel" || processing) return;
+          const card = Math.min(
+            panes.length - 1,
+            Math.max(0, Math.floor(self.progress * panes.length)),
+          );
+          if (card !== current) setTargetForCard(card);
+        },
+      });
 
-    const ANIM_DURATION_MS = 650;
-    let wheelCooldown = false;
+      let wheelAccum = 0;
+      const WHEEL_THRESHOLD = 400;
 
-    const onWheel = (e) => {
-      if (!pinnedST.isActive) return;
-
-      const dir = e.deltaY > 0 ? 1 : -1;
-      const newIndex = current + dir;
-
-      if (newIndex < 0) return;
-
-      if (newIndex >= panes.length) {
+      const onWheel = (e) => {
+        if (!desktopMode || !sectionPin?.isActive) return;
+        const delta =
+          e.deltaMode === 1
+            ? e.deltaY * 30
+            : e.deltaMode === 2
+              ? e.deltaY * 300
+              : e.deltaY;
+        const dir = delta > 0 ? 1 : -1;
+        if (wheelAccum !== 0 && Math.sign(wheelAccum) !== dir) wheelAccum = 0;
+        wheelAccum += delta;
+        if (current + dir < 0) {
+          wheelAccum = 0;
+          return;
+        }
         e.preventDefault();
-        window.scrollTo({ top: pinnedST.end, behavior: "instant" });
-        ScrollTrigger.update();
-        return;
+        if (Math.abs(wheelAccum) < WHEEL_THRESHOLD) return;
+        wheelAccum = 0;
+        navigateCard(dir);
+      };
+
+      if (desktopMode) {
+        window.addEventListener("wheel", onWheel, { passive: false });
       }
 
-      e.preventDefault();
-      if (wheelCooldown) return;
-      wheelCooldown = true;
-      setTimeout(() => {
-        wheelCooldown = false;
-      }, ANIM_DURATION_MS);
-
-      switchTo(newIndex);
-    };
-
-    window.addEventListener("wheel", onWheel, { passive: false });
-
-    return () => {
-      window.removeEventListener("wheel", onWheel);
-      pinnedST.kill();
-    };
-  });
-
-  // ── Mobile (≤991px): scrub-based switching ───────────────────
-  mm.add("(max-width: 991px)", () => {
-    const mobileST = ScrollTrigger.create({
-      trigger: section,
-      start: "top top",
-      end: () => `+=${window.innerHeight * (panes.length - 1) * 0.8}`,
-      pin: true,
-      pinSpacing: true,
-      scrub: 1,
-      onUpdate: (self) => {
-        const index = Math.min(
-          Math.round(self.progress * (panes.length - 1)),
-          panes.length - 1,
-        );
-        if (index !== current) switchTo(index);
-      },
-    });
-
-    return () => {
-      mobileST.kill();
-    };
-  });
+      return () => {
+        if (desktopMode) window.removeEventListener("wheel", onWheel);
+        cancelAnimationFrame(syncScrollRaf);
+        sectionPin?.kill();
+        sectionPin = null;
+        scrollNavMode = "scroll";
+      };
+    },
+  );
 });
