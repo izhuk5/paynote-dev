@@ -189,6 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const syncPinScroll = () => {
       if (!sectionPin || scrollNavMode !== "wheel") return;
+      if (currentTabIndex >= cards.length - 1) return;
       cancelAnimationFrame(syncScrollRaf);
       syncScrollRaf = requestAnimationFrame(() => {
         scrollPinToCard(currentTabIndex);
@@ -387,7 +388,10 @@ document.addEventListener("DOMContentLoaded", () => {
         sectionPin = ScrollTrigger.create({
           trigger: sectionWrapper,
           start: "top top",
-          end: () => `+=${window.innerHeight * cards.length}`,
+          end: () =>
+            desktopMode
+              ? `+=${window.innerHeight}`
+              : `+=${window.innerHeight * (cards.length + 0.5)}`,
           pin: true,
           pinSpacing: true,
           onUpdate: (self) => {
@@ -405,7 +409,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const releasePin = () => {
           if (!sectionPin) return;
-          window.scrollTo({ top: sectionPin.end + 1, behavior: "instant" });
+          window.scrollTo(0, sectionPin.end + window.innerHeight * 0.1);
           ScrollTrigger.update();
         };
 

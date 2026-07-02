@@ -134,6 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const syncPinScroll = () => {
     if (!sectionPin || scrollNavMode !== "wheel") return;
+    if (currentCard >= items.length - 1) return;
     cancelAnimationFrame(syncScrollRaf);
     syncScrollRaf = requestAnimationFrame(() => {
       scrollPinToCard(currentCard);
@@ -426,7 +427,10 @@ document.addEventListener("DOMContentLoaded", () => {
       sectionPin = ScrollTrigger.create({
         trigger: section,
         start: "top top",
-        end: () => `+=${window.innerHeight * items.length}`,
+        end: () =>
+          desktopMode
+            ? `+=${window.innerHeight}`
+            : `+=${window.innerHeight * (items.length + 0.5)}`,
         pin: true,
         pinSpacing: true,
         onUpdate: (self) => {
@@ -443,7 +447,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const WHEEL_THRESHOLD = 400;
       const releasePin = () => {
         if (!sectionPin) return;
-        window.scrollTo({ top: sectionPin.end + 1, behavior: "instant" });
+        window.scrollTo(0, sectionPin.end + window.innerHeight * 0.1);
         ScrollTrigger.update();
       };
 
