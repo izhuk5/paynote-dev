@@ -172,29 +172,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let scrollTarget = 0;
     let processing = false;
     let sectionPin = null;
-    let scrollNavMode = "scroll";
-    let syncScrollRaf = 0;
 
     const steps = cards.map((_, idx) => ({ cardIdx: idx, phase: "normal" }));
-    const firstStepOfCard = (cardIdx) => cardIdx;
-    const lastStepOfCard = (cardIdx) => cardIdx;
-
-    const scrollPinToCard = (cardIdx) => {
-      if (!sectionPin) return;
-      const range = sectionPin.end - sectionPin.start;
-      if (range <= 0) return;
-      const progress = cards.length > 1 ? cardIdx / (cards.length - 1) : 0;
-      sectionPin.scroll(sectionPin.start + progress * range);
-    };
-
-    const syncPinScroll = () => {
-      if (!sectionPin || scrollNavMode !== "wheel") return;
-      if (currentTabIndex >= cards.length - 1) return;
-      cancelAnimationFrame(syncScrollRaf);
-      syncScrollRaf = requestAnimationFrame(() => {
-        scrollPinToCard(currentTabIndex);
-      });
-    };
 
     const processQueue = () => {
       if (processing) return;
@@ -210,35 +189,15 @@ document.addEventListener("DOMContentLoaded", () => {
           processing = false;
           processQueue();
         });
-      } else {
-        syncPinScroll();
       }
     };
 
     const setTargetForCard = (cardIdx) => {
-      const target =
-        cardIdx > currentTabIndex
-          ? firstStepOfCard(cardIdx)
-          : lastStepOfCard(cardIdx);
+      const target = Math.max(0, Math.min(cards.length - 1, cardIdx));
       if (target !== scrollTarget) {
         scrollTarget = target;
         processQueue();
       }
-    };
-
-    const navigateCard = (dir) => {
-      const nextCard = currentTabIndex + dir;
-      if (nextCard < 0) return false;
-      if (nextCard >= cards.length) {
-        if (currentTabIndex === cards.length - 1 && !processing && sectionPin) {
-          sectionPin.scroll(sectionPin.end);
-        }
-        return false;
-      }
-      scrollTarget =
-        dir > 0 ? firstStepOfCard(nextCard) : lastStepOfCard(nextCard);
-      processQueue();
-      return true;
     };
 
     const goToStep = (nextStep, onDone = null) => {
@@ -367,97 +326,34 @@ document.addEventListener("DOMContentLoaded", () => {
     buttons.forEach((btn, i) => {
       btn.addEventListener("click", () => {
         if (i === currentTabIndex) return;
-        processing = false;
-        scrollTarget = i;
-        currentStep = i;
-        switchToTab(i);
+        setTargetForCard(i);
       });
     });
 
+    // — Pin: 1vh на слайд, progress → очередь без пропусков —
     const mm = gsap.matchMedia();
-    mm.add(
-      {
-        isDesktop: "(min-width: 992px)",
-        isMobile: "(max-width: 991px)",
-      },
-      (ctx) => {
-        const { isDesktop, isMobile } = ctx.conditions;
-        const desktopMode = isDesktop !== false && !isMobile;
-        scrollNavMode = desktopMode ? "wheel" : "scroll";
+    mm.add("(min-width: 1px)", () => {
+      sectionPin = ScrollTrigger.create({
+        trigger: sectionWrapper,
+        start: "top top",
+        end: () => `+=${window.innerHeight * cards.length}`,
+        pin: true,
+        pinSpacing: true,
+        anticipatePin: 1,
+        onUpdate: (self) => {
+          const card = Math.min(
+            cards.length - 1,
+            Math.max(0, Math.floor(self.progress * cards.length)),
+          );
+          if (card !== scrollTarget) setTargetForCard(card);
+        },
+      });
 
-        sectionPin = ScrollTrigger.create({
-          trigger: sectionWrapper,
-          start: "top top",
-          end: () =>
-            desktopMode
-              ? `+=${window.innerHeight}`
-              : `+=${window.innerHeight * (cards.length + 0.5)}`,
-          pin: true,
-          pinSpacing: true,
-          onUpdate: (self) => {
-            if (scrollNavMode === "wheel" || processing) return;
-            const card = Math.min(
-              cards.length - 1,
-              Math.max(0, Math.floor(self.progress * cards.length)),
-            );
-            if (card !== currentTabIndex) setTargetForCard(card);
-          },
-        });
-
-        let wheelAccum = 0;
-        const WHEEL_THRESHOLD = 400;
-
-        const releasePin = () => {
-          if (!sectionPin) return;
-          window.scrollTo(0, sectionPin.end + window.innerHeight * 0.1);
-          ScrollTrigger.update();
-        };
-
-        const onWheel = (e) => {
-          if (!desktopMode || !sectionPin?.isActive) return;
-
-          const delta =
-            e.deltaMode === 1
-              ? e.deltaY * 30
-              : e.deltaMode === 2
-                ? e.deltaY * 300
-                : e.deltaY;
-          const dir = delta > 0 ? 1 : -1;
-
-          if (currentTabIndex + dir < 0) {
-            wheelAccum = 0;
-            return;
-          }
-
-          if (currentTabIndex >= cards.length - 1 && dir > 0) {
-            wheelAccum = 0;
-            releasePin();
-            return;
-          }
-
-          if (wheelAccum !== 0 && Math.sign(wheelAccum) !== dir) wheelAccum = 0;
-          wheelAccum += delta;
-
-          e.preventDefault();
-          if (Math.abs(wheelAccum) < WHEEL_THRESHOLD) return;
-
-          wheelAccum = 0;
-          navigateCard(dir);
-        };
-
-        if (desktopMode) {
-          window.addEventListener("wheel", onWheel, { passive: false });
-        }
-
-        return () => {
-          if (desktopMode) window.removeEventListener("wheel", onWheel);
-          cancelAnimationFrame(syncScrollRaf);
-          sectionPin?.kill();
-          sectionPin = null;
-          scrollNavMode = "scroll";
-        };
-      },
-    );
+      return () => {
+        sectionPin?.kill();
+        sectionPin = null;
+      };
+    });
   };
 
   window.addEventListener("load", setup, { once: true });
