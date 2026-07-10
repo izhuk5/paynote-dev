@@ -10,7 +10,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   ScrollTrigger.config({
     autoRefreshEvents: "visibilitychange,DOMContentLoaded,load,resize",
+    ignoreMobileResize: true,
   });
+
+  // Синхронизирует скролл (в т.ч. тач-флики) с JS-потоком,
+  // чтобы transform пина не отставал от нативного скролла —
+  // именно это отставание на мобильном Chrome даёт эффект
+  // "проскакивания" соседних секций во время скролла.
+  ScrollTrigger.normalizeScroll(true);
 
   const animateSlotMachine = (el, numberStr) => {
     if (!el || !numberStr) return;
@@ -173,7 +180,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let processing = false;
     let sectionPin = null;
 
-    const steps = cards.map((_, idx) => ({ cardIdx: idx, phase: "normal" }));
+    const steps = cards.map((_, idx) => ({
+      cardIdx: idx,
+      phase: "normal",
+    }));
 
     const processQueue = () => {
       if (processing) return;
@@ -276,7 +286,10 @@ document.addEventListener("DOMContentLoaded", () => {
       start: "top 75%",
       once: true,
       onEnter: () => {
-        gsap.set(firstCard, { visibility: "visible", opacity: 0 });
+        gsap.set(firstCard, {
+          visibility: "visible",
+          opacity: 0,
+        });
         firstCard.classList.add("is-active");
         firstCard.style.pointerEvents = "auto";
 
