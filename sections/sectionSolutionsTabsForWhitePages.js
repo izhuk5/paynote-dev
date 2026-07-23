@@ -1,24 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
   gsap.registerPlugin(ScrollTrigger);
-
   const CONFIG = {
     duration: 0.6,
     ease: "sine.out",
     stagger: 0.1,
     overlap: 0.4,
   };
-
   ScrollTrigger.config({
     autoRefreshEvents: "visibilitychange,DOMContentLoaded,load,resize",
     ignoreMobileResize: true,
   });
-
-  // Синхронизирует скролл (в т.ч. тач-флики) с JS-потоком,
-  // чтобы transform пина не отставал от нативного скролла —
-  // именно это отставание на мобильном Chrome даёт эффект
-  // "проскакивания" соседних секций во время скролла.
-  ScrollTrigger.normalizeScroll(true);
-
   const animateSlotMachine = (el, numberStr) => {
     if (!el || !numberStr) return;
     el.innerHTML = "";
@@ -59,13 +50,11 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   };
-
   const animateCardTransition = (oldCard, newCard, allCards, onDone = null) => {
     if (!oldCard || !newCard || oldCard === newCard) {
       onDone?.();
       return;
     }
-
     const targets = [
       oldCard,
       newCard,
@@ -73,7 +62,6 @@ document.addEventListener("DOMContentLoaded", () => {
       ...newCard.children,
     ];
     gsap.killTweensOf(targets);
-
     allCards.forEach((card) => {
       if (card !== oldCard && card !== newCard) {
         card.classList.remove("is-active");
@@ -84,7 +72,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     });
-
     const selector = gsap.utils.selector(newCard);
     const textEls = [
       ...selector(".solutions_tabs-card-heading-number"),
@@ -97,12 +84,9 @@ document.addEventListener("DOMContentLoaded", () => {
       ...selector(".solutions_tabs-phone-img"),
       ...selector(".solutions_tabs_card_bg-img"),
     ].filter(Boolean);
-
     if (textEls.length) gsap.set(textEls, { opacity: 0, y: 20 });
     if (imageEls.length) gsap.set(imageEls, { opacity: 0 });
-
     const offset = CONFIG.duration * CONFIG.overlap;
-
     const tl = gsap.timeline({ onComplete: onDone });
     tl.to(
       oldCard,
@@ -134,7 +118,6 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         offset,
       );
-
     if (textEls.length) {
       tl.to(
         textEls,
@@ -149,7 +132,6 @@ document.addEventListener("DOMContentLoaded", () => {
         offset,
       );
     }
-
     if (imageEls.length) {
       tl.to(
         imageEls,
@@ -163,28 +145,23 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
   };
-
   const setup = () => {
     const buttons = gsap.utils.toArray(".solutions_tabs_button");
     const cards = gsap.utils.toArray(".solutions_tabs_card");
     const sectionWrapper = document.querySelector(".solutions_tabs-section-wr");
-
     if (!sectionWrapper || !cards.length) {
       console.warn("[ScrollTabs] Required DOM elements not found.");
       return;
     }
-
     let currentTabIndex = 0;
     let currentStep = 0;
     let scrollTarget = 0;
     let processing = false;
     let sectionPin = null;
-
     const steps = cards.map((_, idx) => ({
       cardIdx: idx,
       phase: "normal",
     }));
-
     const processQueue = () => {
       if (processing) return;
       if (currentStep < scrollTarget) {
@@ -201,7 +178,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     };
-
     const setTargetForCard = (cardIdx) => {
       const target = Math.max(0, Math.min(cards.length - 1, cardIdx));
       if (target !== scrollTarget) {
@@ -209,7 +185,6 @@ document.addEventListener("DOMContentLoaded", () => {
         processQueue();
       }
     };
-
     const goToStep = (nextStep, onDone = null) => {
       if (
         nextStep === currentStep ||
@@ -222,7 +197,6 @@ document.addEventListener("DOMContentLoaded", () => {
       currentStep = nextStep;
       switchToTab(steps[nextStep].cardIdx, onDone);
     };
-
     const switchToTab = (index, onDone = null) => {
       if (index === currentTabIndex) {
         onDone?.();
@@ -232,16 +206,12 @@ document.addEventListener("DOMContentLoaded", () => {
         onDone?.();
         return;
       }
-
       const prevIndex = currentTabIndex;
       currentTabIndex = index;
-
       buttons.forEach((btn, i) =>
         btn.classList.toggle("is-active", i === index),
       );
-
       animateCardTransition(cards[prevIndex], cards[index], cards, onDone);
-
       const numberEl = cards[index].querySelector("[solutions-text-number]");
       if (numberEl) {
         animateSlotMachine(
@@ -250,7 +220,6 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
     };
-
     cards.forEach((card) => {
       gsap.set(card, {
         visibility: "hidden",
@@ -259,9 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       card.classList.remove("is-active");
     });
-
     buttons.forEach((btn, i) => btn.classList.toggle("is-active", i === 0));
-
     const firstCard = cards[0];
     const firstSelector = gsap.utils.selector(firstCard);
     const firstTextEls = [
@@ -275,12 +242,9 @@ document.addEventListener("DOMContentLoaded", () => {
       ...firstSelector(".solutions_tabs-phone-img"),
       ...firstSelector(".solutions_tabs_card_bg-img"),
     ].filter(Boolean);
-
     if (firstTextEls.length) gsap.set(firstTextEls, { opacity: 0, y: 20 });
     if (firstImageEls.length) gsap.set(firstImageEls, { opacity: 0 });
-
     const firstNumberEl = firstCard.querySelector("[solutions-text-number]");
-
     ScrollTrigger.create({
       trigger: sectionWrapper,
       start: "top 75%",
@@ -292,13 +256,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         firstCard.classList.add("is-active");
         firstCard.style.pointerEvents = "auto";
-
         const enterTl = gsap.timeline().to(firstCard, {
           opacity: 1,
           duration: CONFIG.duration * 0.6,
           ease: CONFIG.ease,
         });
-
         if (firstTextEls.length) {
           enterTl.to(
             firstTextEls,
@@ -313,7 +275,6 @@ document.addEventListener("DOMContentLoaded", () => {
             "<",
           );
         }
-
         if (firstImageEls.length) {
           enterTl.to(
             firstImageEls,
@@ -326,7 +287,6 @@ document.addEventListener("DOMContentLoaded", () => {
             "<",
           );
         }
-
         if (firstNumberEl) {
           animateSlotMachine(
             firstNumberEl,
@@ -335,14 +295,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       },
     });
-
     buttons.forEach((btn, i) => {
       btn.addEventListener("click", () => {
         if (i === currentTabIndex) return;
         setTargetForCard(i);
       });
     });
-
     // — Pin: 1vh на слайд, progress → очередь без пропусков —
     const mm = gsap.matchMedia();
     mm.add("(min-width: 1px)", () => {
@@ -361,13 +319,11 @@ document.addEventListener("DOMContentLoaded", () => {
           if (card !== scrollTarget) setTargetForCard(card);
         },
       });
-
       return () => {
         sectionPin?.kill();
         sectionPin = null;
       };
     });
   };
-
   window.addEventListener("load", setup, { once: true });
 });
