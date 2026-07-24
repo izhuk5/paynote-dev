@@ -1,6 +1,3 @@
-/**
- * Solutions tabs — scroll pin + card transitions (GSAP ScrollTrigger)
- */
 document.addEventListener("DOMContentLoaded", () => {
   gsap.registerPlugin(ScrollTrigger);
 
@@ -10,6 +7,11 @@ document.addEventListener("DOMContentLoaded", () => {
     stagger: 0.1,
     overlap: 0.4,
   };
+
+  ScrollTrigger.config({
+    autoRefreshEvents: "visibilitychange,DOMContentLoaded,load,resize",
+    ignoreMobileResize: true,
+  });
 
   const animateSlotMachine = (el, numberStr) => {
     if (!el || !numberStr) return;
@@ -29,13 +31,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const reel = document.createElement("div");
       reel.className = "slot-reel";
 
+      reel.style.willChange = "transform";
+
       Array.from({ length: 10 }, (_, n) => {
         const item = document.createElement("div");
         item.className = "slot-num";
         item.textContent = n;
         reel.appendChild(item);
       });
-
       digitDiv.appendChild(reel);
       wrapper.appendChild(digitDiv);
 
@@ -62,7 +65,6 @@ document.addEventListener("DOMContentLoaded", () => {
       onDone?.();
       return;
     }
-
     const targets = [
       oldCard,
       newCard,
@@ -90,6 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ...selector(".solutions_tabs_card_image-placeholder"),
       ...selector(".badge-holder.is-solutions-tabs"),
     ].filter(Boolean);
+
     const imageEls = [
       ...selector(".solutions_tabs-phone-img"),
       ...selector(".solutions_tabs_card_bg-img"),
@@ -146,7 +149,6 @@ document.addEventListener("DOMContentLoaded", () => {
         offset,
       );
     }
-
     if (imageEls.length) {
       tl.to(
         imageEls,
@@ -229,7 +231,6 @@ document.addEventListener("DOMContentLoaded", () => {
         onDone?.();
         return;
       }
-
       const prevIndex = currentTabIndex;
       currentTabIndex = index;
       buttons.forEach((btn, i) =>
@@ -254,6 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       card.classList.remove("is-active");
     });
+
     buttons.forEach((btn, i) => btn.classList.toggle("is-active", i === 0));
 
     const firstCard = cards[0];
@@ -265,6 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ...firstSelector(".solutions_tabs_card_image-placeholder"),
       ...firstSelector(".badge-holder.is-solutions-tabs"),
     ].filter(Boolean);
+
     const firstImageEls = [
       ...firstSelector(".solutions_tabs-phone-img"),
       ...firstSelector(".solutions_tabs_card_bg-img"),
@@ -280,16 +283,17 @@ document.addEventListener("DOMContentLoaded", () => {
       start: "top 75%",
       once: true,
       onEnter: () => {
-        gsap.set(firstCard, { visibility: "visible", opacity: 0 });
+        gsap.set(firstCard, {
+          visibility: "visible",
+          opacity: 0,
+        });
         firstCard.classList.add("is-active");
         firstCard.style.pointerEvents = "auto";
-
         const enterTl = gsap.timeline().to(firstCard, {
           opacity: 1,
           duration: CONFIG.duration * 0.6,
           ease: CONFIG.ease,
         });
-
         if (firstTextEls.length) {
           enterTl.to(
             firstTextEls,
@@ -304,7 +308,6 @@ document.addEventListener("DOMContentLoaded", () => {
             "<",
           );
         }
-
         if (firstImageEls.length) {
           enterTl.to(
             firstImageEls,
@@ -317,7 +320,6 @@ document.addEventListener("DOMContentLoaded", () => {
             "<",
           );
         }
-
         if (firstNumberEl) {
           animateSlotMachine(
             firstNumberEl,
@@ -334,24 +336,30 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // Pin без anticipatePin — иначе ранний fixed и наезд на соседние секции
+    // — ИСПРАВЛЕННЫЙ НАВЕРНЯКА НАВЕРХ С ПРИРОДНЫМ СКРОЛЛОМ —
     const mm = gsap.matchMedia();
     mm.add("(min-width: 1px)", () => {
+      // Подсчет высоты экрана без тяжелых перегрузок
+      const baseHeight = window.innerHeight;
+      const totalScrollDistance = baseHeight * cards.length;
+
       sectionPin = ScrollTrigger.create({
         trigger: sectionWrapper,
         start: "top top",
-        end: () => `+=${window.innerHeight * Math.max(1, cards.length - 1)}`,
+        end: `+=${totalScrollDistance}`,
         pin: true,
         pinSpacing: true,
-        invalidateOnRefresh: true,
-        refreshPriority: -1,
+        // Слегка уменьшили упреждение, чтобы нативный тач успевал отрабатывать скролл
+        anticipatePin: 0.5,
         onUpdate: (self) => {
-          const max = cards.length - 1;
-          const card = Math.round(gsap.utils.clamp(0, 1, self.progress) * max);
+          const card = Math.min(
+            cards.length - 1,
+            Math.max(0, Math.floor(self.progress * cards.length)),
+          );
           if (card !== scrollTarget) setTargetForCard(card);
         },
       });
-      requestAnimationFrame(() => ScrollTrigger.refresh());
+
       return () => {
         sectionPin?.kill();
         sectionPin = null;
